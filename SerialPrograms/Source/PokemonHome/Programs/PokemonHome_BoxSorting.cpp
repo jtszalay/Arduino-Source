@@ -281,12 +281,16 @@ bool go_to_first_slot(SingleSwitchProgramEnvironment& env, BotBaseContext& conte
     return dest_cursor;
 }
 
-void print_boxes_data(std::vector<std::optional<Pokemon>> boxes_data, SingleSwitchProgramEnvironment& env){
+void print_boxes_data(std::vector<std::optional<Pokemon>> boxes_data, SingleSwitchProgramEnvironment& env, std::string sep){
     std::ostringstream ss;
     for (const std::optional<Pokemon>& pokemon : boxes_data){
-        ss << pokemon << "\n";
+        ss << pokemon << sep;
     }
     env.console.log(ss.str());
+}
+
+void print_boxes_data(std::vector<std::optional<Pokemon>> boxes_data, SingleSwitchProgramEnvironment& env){
+    print_boxes_data(boxes_data, env, "\n");
 }
 
 void BoxSorting::program(SingleSwitchProgramEnvironment& env, BotBaseContext& context){
@@ -461,18 +465,8 @@ void BoxSorting::program(SingleSwitchProgramEnvironment& env, BotBaseContext& co
 
         box_render.clear();
 
-        ss << std::endl;
-
-        // print box information
-        for (int row = 0; row < MAX_ROWS; row++) {
-            for (int column = 0; column < MAX_COLUMNS; column++) {
-                ss << boxes_data[get_index(box_nb, row, column)] << " ";
-            }
-            ss << std::endl;
-        }
-
-        env.console.log(ss.str());
-        ss.str("");
+        env.console.log("Current box data :");
+        print_boxes_data(boxes_data, env, " ");
 
         //get out of summary with a lot of delay because it's slow for some reasons
         pbf_press_button(context, BUTTON_B, 10, VIDEO_DELAY+200);
