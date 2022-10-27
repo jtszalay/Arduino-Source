@@ -293,6 +293,61 @@ void print_boxes_data(std::vector<std::optional<Pokemon>> boxes_data, SingleSwit
     print_boxes_data(boxes_data, env, "\n");
 }
 
+void sort_boxes(
+        SingleSwitchProgramEnvironment& env,
+        BotBaseContext& context,
+        std::vector<std::optional<Pokemon>> boxes_data,
+        std::vector<std::optional<Pokemon>> boxes_sorted,
+        uint16_t GAME_DELAY,
+        BoxSorting_Descriptor::Stats& stats,
+        size_t BOX_NUMBER
+        ){
+    std::ostringstream ss;
+    Cursor cur_cursor{static_cast<uint16_t>(BOX_NUMBER-1), 0, 0};
+
+    for (size_t poke_nb_s = 0; poke_nb_s < boxes_sorted.size(); poke_nb_s++) {
+        if (boxes_sorted[poke_nb_s] == std::nullopt){ // we've hit the end of the sorted list.
+            break;
+        }
+        for (size_t poke_nb = poke_nb_s; poke_nb < boxes_data.size(); poke_nb++) {
+            Cursor cursor_s = get_cursor(poke_nb_s);
+            Cursor cursor = get_cursor(poke_nb);
+
+            ss << "Comparing " << boxes_data[poke_nb] << " at " << cursor << " to " << boxes_sorted[poke_nb_s] << " at " << cursor_s;
+            env.console.log(ss.str());
+            ss.str("");
+
+            //check for a match and also check if the pokemon is not already in the slot
+            stats.compare++;
+            env.update_stats();
+            if(boxes_sorted[poke_nb_s] == boxes_data[poke_nb] && poke_nb_s == poke_nb){ // Same spot no need to move.
+                break;
+            }
+            if(boxes_sorted[poke_nb_s] == boxes_data[poke_nb]){
+                ss << "Swapping " << boxes_data[poke_nb] << " at " << cursor << " and " << boxes_sorted[poke_nb_s] << " at " << cursor_s;
+                env.console.log(ss.str());
+                ss.str("");
+
+                //moving cursor to the pokemon to pick it up
+                cur_cursor = move_cursor_to(env, context, cur_cursor, cursor, GAME_DELAY);
+                pbf_press_button(context, BUTTON_Y, 10, GAME_DELAY+30);
+
+                //moving to destination to place it or swap it
+                cur_cursor = move_cursor_to(env, context, cur_cursor, cursor_s, GAME_DELAY);
+                pbf_press_button(context, BUTTON_Y, 10, GAME_DELAY+30);
+
+                context.wait_for_all_requests();
+
+                std::swap(boxes_data[poke_nb_s], boxes_data[poke_nb]);
+                stats.swaps++;
+                env.update_stats();
+
+                break;
+            }
+        }
+    }
+}
+
 void BoxSorting::program(SingleSwitchProgramEnvironment& env, BotBaseContext& context){
     BoxSorting_Descriptor::Stats& stats = env.current_stats< BoxSorting_Descriptor::Stats>();
 
@@ -303,8 +358,6 @@ void BoxSorting::program(SingleSwitchProgramEnvironment& env, BotBaseContext& co
 
     // vector that will store data for each slot
     std::vector<std::optional<Pokemon>> boxes_data;
-
-    Cursor cur_cursor{static_cast<uint16_t>(BOX_NUMBER-1), 0, 0};
 
     std::shared_ptr<const ImageRGB32> screen = env.console.video().snapshot();
 
@@ -492,47 +545,7 @@ void BoxSorting::program(SingleSwitchProgramEnvironment& env, BotBaseContext& co
     // this need to be separated into functions when I will redo the whole thing but I just wanted it to work
 
     // going thru the sorted list one by one and for each one go through the current pokemon layout to find the closest possible match to fill the slot
-    for (size_t poke_nb_s = 0; poke_nb_s < boxes_sorted.size(); poke_nb_s++) {
-        if (boxes_sorted[poke_nb_s] == std::nullopt){ // we've hit the end of the sorted list.
-            break;
-        }
-        for (size_t poke_nb = poke_nb_s; poke_nb < boxes_data.size(); poke_nb++) {
-            Cursor cursor_s = get_cursor(poke_nb_s);
-            Cursor cursor = get_cursor(poke_nb);
-
-            ss << "Comparing " << boxes_data[poke_nb] << " at " << cursor << " to " << boxes_sorted[poke_nb_s] << " at " << cursor_s;
-            env.console.log(ss.str());
-            ss.str("");
-
-            //check for a match and also check if the pokemon is not already in the slot
-            stats.compare++;
-            env.update_stats();
-            if(boxes_sorted[poke_nb_s] == boxes_data[poke_nb] && poke_nb_s == poke_nb){ // Same spot no need to move.
-                break;
-            }
-            if(boxes_sorted[poke_nb_s] == boxes_data[poke_nb]){
-                ss << "Swapping " << boxes_data[poke_nb] << " at " << cursor << " and " << boxes_sorted[poke_nb_s] << " at " << cursor_s;
-                env.console.log(ss.str());
-                ss.str("");
-
-                //moving cursor to the pokemon to pick it up
-                cur_cursor = move_cursor_to(env, context, cur_cursor, cursor, GAME_DELAY);
-                pbf_press_button(context, BUTTON_Y, 10, GAME_DELAY+30);
-
-                //moving to destination to place it or swap it
-                cur_cursor = move_cursor_to(env, context, cur_cursor, cursor_s, GAME_DELAY);
-                pbf_press_button(context, BUTTON_Y, 10, GAME_DELAY+30);
-
-                context.wait_for_all_requests();
-
-                std::swap(boxes_data[poke_nb_s], boxes_data[poke_nb]);
-                stats.swaps++;
-                env.update_stats();
-
-                break;
-            }
-        }
-    }
+    sort_boxes(env, context, boxes_data, boxes_sorted, GAME_DELAY, stats, BOX_NUMBER);
 
     send_program_finished_notification(env, NOTIFICATION_PROGRAM_FINISH);
 
